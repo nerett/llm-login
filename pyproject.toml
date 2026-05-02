@@ -1,0 +1,28 @@
+[project]
+name = "llm-login"
+version = "0.1.0"
+description = "Reverse proxy for local LLMs with user management and token quota"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "bcrypt>=5.0.0",
+    "fastapi>=0.136.1",
+    "httpx[http2]>=0.28.1",
+    "pydantic>=2.13.3",
+    "pydantic-settings>=2.14.0",
+    "pyjwt>=2.12.1",
+    "pytest>=9.0.3",
+    "sqlalchemy>=2.0.49",
+    "uvicorn>=0.46.0",
+]
+
+[dependency-groups]
+dev = [
+    "pylint>=4.0.5",
+    "pytest-cov>=7.1.0",
+]
+
+[tool.pylint.main]
+disable =["C0114", "C0115", "C0116", "R0903"]
+good-names =["id", "db", "app", "router", "pk"]
+max-line-length = 120
