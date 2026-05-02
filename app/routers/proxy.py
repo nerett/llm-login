@@ -1,0 +1,58 @@
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.models import User, Quota, AuditLog
+from app.auth import get_current_user
+from app.config import settings
+
+router = APIRouter(prefix="/proxy", tags=["proxy"])
+
+def estimate_tokens(payload: bytes) -> int:
+    text = payload.decode(errors="ignore")
+    return max(1, len(text.split()) // 2)
+
+@router.post("/llm/{path:path}")
+async def proxy_llm(
+    path: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    quota = db.query(Quota).filter(Quota.user_id == current_user.id).first()
+    if not quota:
+        raise HTTPException(status_code=403, detail="Quota not assigned")
+
+    body = await request.body()
+    estimated_cost = estimate_tokens(body)
+
+    if quota.used_tokens + estimated_cost > quota.max_tokens:
+        raise HTTPException(status_code=429, detail="Quota exceeded")
+
+    target_url = f"{settings.llm_base_url}/{path}"
+
+    async with httpx.AsyncClient() as client:
+        try:
+            llm_response = await client.post(
+                target_url,
+                content=body,
+                headers={"Content-Type": "application/json"},
+                timeout=60.0
+            )
+        except httpx.RequestError as exc:
+            raise HTTPException(status_code=502, detail="llm service is unreachable") from exc
+
+    quota.used_tokens += estimated_cost
+    audit_log = AuditLog(
+        user_id=current_user.id,
+        endpoint=f"/llm/{path}",
+        tokens_estimated=estimated_cost
+    )
+    db.add(audit_log)
+    db.commit()
+
+    return Response(
+        content=llm_response.content,
+        status_code=llm_response.status_code,
+        media_type=llm_response.headers.get("content-type")
+    )
