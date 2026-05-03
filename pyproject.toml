@@ -25,5 +25,5 @@ dev = [
 
 [tool.pylint.main]
 disable =["C0114", "C0115", "C0116", "R0903"]
-good-names =["id", "db", "app", "router", "pk"]
+good-names =["id", "db", "app", "router", "pk", "SessionLocal"]
 max-line-length = 120

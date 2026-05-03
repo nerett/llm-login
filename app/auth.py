@@ -1,6 +1,8 @@
+from collections.abc import Callable
+from datetime import datetime, timedelta, timezone
+from typing import Any
 import bcrypt
 import jwt
-from datetime import datetime, timedelta, timezone
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -17,7 +19,7 @@ def hash_password(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
 
-def create_access_token(data: dict) -> str:
+def create_access_token(data: dict[str, Any]) -> str:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
     to_encode.update({"exp": expire})
@@ -42,7 +44,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise credentials_exception
     return user
 
-def require_privilege(min_level: int):
+def require_privilege(min_level: int) -> Callable[[User], User]:
     def role_checker(current_user: User = Depends(get_current_user)) -> User:
         if current_user.privilege_level < min_level:
             raise HTTPException(status_code=403, detail="Not enough privileges")
