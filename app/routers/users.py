@@ -1,5 +1,7 @@
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from app.database import get_db
 from app.models import User, Quota, AuditLog
 from app.schemas import (
@@ -10,6 +12,7 @@ from app.schemas import (
     PasswordUpdate,
     QuotaUpdate,
     AuditLogResponse,
+    QuotaForecast,
 )
 from app.auth import require_privilege, hash_password, get_current_user, verify_password
 
@@ -149,4 +152,41 @@ def get_user_logs(
         .offset(skip)
         .limit(limit)
         .all()
+    )
+
+
+@router.get("/{user_id}/quota-forecast", response_model=QuotaForecast)
+def predict_quota_exhaustion(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> QuotaForecast:
+    if current_user.id != user_id and current_user.privilege_level < 50:
+        raise HTTPException(status_code=403, detail="Not enough privileges")
+
+    quota = db.query(Quota).filter(Quota.user_id == user_id).first()
+    if not quota:
+        raise HTTPException(status_code=404, detail="Quota not found")
+
+    first_log = db.query(func.min(AuditLog.timestamp)).filter(AuditLog.user_id == user_id).scalar()
+
+    if not first_log or quota.used_tokens == 0:
+        return QuotaForecast(average_daily_tokens=0.0, days_until_exhaustion=None, is_critical=False)
+
+    now = datetime.now(timezone.utc)
+
+    first_log_aware = first_log if first_log.tzinfo else first_log.replace(tzinfo=timezone.utc)
+    days_active = (now - first_log_aware).total_seconds() / 86400.0
+
+    days_active = max(days_active, 1.0)
+    avg_daily = quota.used_tokens / days_active
+    remaining = quota.max_tokens - quota.used_tokens
+
+    days_left = remaining / avg_daily if avg_daily > 0 else None
+    is_critical = days_left is not None and days_left < 3.0
+
+    return QuotaForecast(
+        average_daily_tokens=round(avg_daily, 2),
+        days_until_exhaustion=round(days_left, 1) if days_left else None,
+        is_critical=is_critical
     )

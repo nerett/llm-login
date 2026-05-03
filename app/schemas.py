@@ -42,3 +42,8 @@ class SystemStats(BaseModel):
     total_requests: int
     total_tokens_used: int
     unique_active_users: int
+
+class QuotaForecast(BaseModel):
+    average_daily_tokens: float
+    days_until_exhaustion: float | None
+    is_critical: bool
