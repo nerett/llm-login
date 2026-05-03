@@ -50,3 +50,6 @@ A secure, high-performance Reverse Proxy built with FastAPI for authenticating, 
 - **API Documentation:** Available at `http://127.0.0.1:8000/docs`
 - **Run Tests (with Coverage):** `uv run pytest --cov=app tests/`
 - **Lint Code:** `uv run pylint app/ tests/` (Target: 10.0/10.0)
+
+## Author Information
+Проект выполнил Андрей Цедрик (М01-507а) в рамках курса "Python для решения прикладных задач" на Цифровой кафедре МФТИ. Цель проекта заключается в разработке REST сервиса на основе `FastAPI` для управления доступом и распределением квоты использования при проксировании запросов к развернутым локально большим языковым моделям.
