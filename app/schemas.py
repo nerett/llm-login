@@ -8,6 +8,13 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
 
+class UserUpdate(BaseModel):
+    privilege_level: int
+
+class PasswordUpdate(BaseModel):
+    old_password: str
+    new_password: str
+
 class UserResponse(UserBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
@@ -21,9 +28,17 @@ class QuotaResponse(BaseModel):
     used_tokens: int
     model_config = ConfigDict(from_attributes=True)
 
+class QuotaUpdate(BaseModel):
+    max_tokens: int
+
 class AuditLogResponse(BaseModel):
     id: int
     endpoint: str
     tokens_estimated: int
     timestamp: datetime
     model_config = ConfigDict(from_attributes=True)
+
+class SystemStats(BaseModel):
+    total_requests: int
+    total_tokens_used: int
+    unique_active_users: int
