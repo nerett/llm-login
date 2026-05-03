@@ -1,5 +1,5 @@
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, BackgroundTasks
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User, Quota, AuditLog
@@ -12,10 +12,15 @@ def estimate_tokens(payload: bytes) -> int:
     text = payload.decode(errors="ignore")
     return max(1, len(text.split()) // 2)
 
+def send_quota_warning(username: str) -> None:
+    """ For now it's print-only. May be impelented in the future. """
+    print(f"NOTIFICATION EMAIL: User {username} has reached 90% of their token quota.")
+
 @router.post("/llm/{path:path}")
 async def proxy_llm(
     path: str,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ) -> Response:
@@ -28,6 +33,9 @@ async def proxy_llm(
 
     if quota.used_tokens + estimated_cost > quota.max_tokens:
         raise HTTPException(status_code=429, detail="Quota exceeded")
+
+    if (quota.used_tokens + estimated_cost) > (quota.max_tokens * 0.9):
+        background_tasks.add_task(send_quota_warning, current_user.username)
 
     target_url = f"{settings.llm_backend_url}/{path}"
 
